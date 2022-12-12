@@ -59,25 +59,31 @@ void Unit::UpdateAllResistances()
 
 void Unit::UpdateDamagePhysical(WeaponAttackType attType)
 {
-    float minDamage = 0.0f;
-    float maxDamage = 0.0f;
+    float totalMin = 0.f;
+    float totalMax = 0.f;
 
-    CalculateMinMaxDamage(attType, false, true, minDamage, maxDamage);
+    float tmpMin, tmpMax;
+    for (uint8 i = 0; i < MAX_ITEM_PROTO_DAMAGES; ++i)
+    {
+        CalculateMinMaxDamage(attType, false, true, tmpMin, tmpMax, i);
+        totalMin += tmpMin;
+        totalMax += tmpMax;
+    }
 
     switch (attType)
     {
         case BASE_ATTACK:
         default:
-            SetStatFloatValue(UNIT_FIELD_MINDAMAGE, minDamage);
-            SetStatFloatValue(UNIT_FIELD_MAXDAMAGE, maxDamage);
+            SetStatFloatValue(UNIT_FIELD_MINDAMAGE, totalMin);
+            SetStatFloatValue(UNIT_FIELD_MAXDAMAGE, totalMax);
             break;
         case OFF_ATTACK:
-            SetStatFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE, minDamage);
-            SetStatFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE, maxDamage);
+            SetStatFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE, totalMin);
+            SetStatFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE, totalMax);
             break;
         case RANGED_ATTACK:
-            SetStatFloatValue(UNIT_FIELD_MINRANGEDDAMAGE, minDamage);
-            SetStatFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE, maxDamage);
+            SetStatFloatValue(UNIT_FIELD_MINRANGEDDAMAGE, totalMin);
+            SetStatFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE, totalMax);
             break;
     }
 }
@@ -525,8 +531,23 @@ void Player::UpdateShieldBlockValue()
     SetUInt32Value(PLAYER_SHIELD_BLOCK, GetShieldBlockValue());
 }
 
-void Player::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage)
+void Player::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage, uint8 damageIndex)
 {
+    // Only proto damage, not affected by any mods
+    if (damageIndex != 0)
+    {
+        minDamage = 0.0f;
+        maxDamage = 0.0f;
+
+        if (!IsInFeralForm() && CanUseAttackType(attType))
+        {
+            minDamage = GetWeaponDamageRange(attType, MINDAMAGE, damageIndex);
+            maxDamage = GetWeaponDamageRange(attType, MAXDAMAGE, damageIndex);
+        }
+
+        return;
+    }
+
     UnitMods unitMod;
 
     switch (attType)
@@ -1039,6 +1060,12 @@ void Creature::UpdateMaxPower(Powers power)
     UnitMods unitMod = UnitMods(static_cast<uint16>(UNIT_MOD_POWER_START) + power);
 
     float value  = GetTotalAuraModValue(unitMod);
+
+    //npcbot
+    if (IsNPCBotOrPet())
+        value += GetCreatePowers(power);
+    //end npcbot
+
     SetMaxPower(power, uint32(value));
 }
 
@@ -1075,8 +1102,16 @@ void Creature::UpdateAttackPowerAndDamage(bool ranged)
     }
 }
 
-void Creature::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage)
+void Creature::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage, uint8 damageIndex /*= 0*/)
 {
+    // creatures only have one damage
+    if (damageIndex != 0)
+    {
+        minDamage = 0.f;
+        maxDamage = 0.f;
+        return;
+    }
+
     UnitMods unitMod;
     float variance = 1.0f;
     switch (attType)
@@ -1106,16 +1141,60 @@ void Creature::CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, 
     float weaponMinDamage = GetWeaponDamageRange(attType, MINDAMAGE);
     float weaponMaxDamage = GetWeaponDamageRange(attType, MAXDAMAGE);
 
+    //npcbot: support for feral form
+    if (IsNPCBot() && IsInFeralForm())
+    {
+        float att_speed = GetAPMultiplier(attType, false);
+        uint8 lvl = GetLevel();
+        if (lvl > 60)
+            lvl = 60;
+
+        weaponMinDamage = lvl*0.85f*att_speed;
+        weaponMaxDamage = lvl*1.25f*att_speed;
+    }
+    else
+    //end npcbot
     if (!CanUseAttackType(attType)) // disarm case
     {
+        //npcbot: mimic player-like disarm (retain damage)
+        if (IsNPCBot())
+        {
+            // Main hand melee is always usable, but disarm reduces damage drastically
+            if (attType == BASE_ATTACK)
+            {
+                weaponMinDamage *= 0.25f;
+                weaponMaxDamage *= 0.25f;
+            }
+            else
+            {
+                weaponMinDamage = 0.0f;
+                weaponMaxDamage = 0.0f;
+            }
+        }
+        else
+        {
+        //end npcbot
         weaponMinDamage = 0.0f;
         weaponMaxDamage = 0.0f;
+        //npcbot
+        }
+    }
+    //end npcbot
+    //npcbot: support for ammo
+    else if (attType == RANGED_ATTACK)
+    {
+        float att_speed = GetAPMultiplier(attType, false);
+        weaponMinDamage += GetCreatureAmmoDPS() * att_speed;
+        weaponMaxDamage += GetCreatureAmmoDPS() * att_speed;
+    //end npcbot
     }
 
     float attackPower      = GetTotalAttackPowerValue(attType);
     float attackSpeedMulti = GetAPMultiplier(attType, normalized);
     float baseValue        = GetModifierValue(unitMod, BASE_VALUE) + (attackPower / 14.0f) * variance;
     float basePct          = GetModifierValue(unitMod, BASE_PCT) * attackSpeedMulti;
+    //float baseValue        = GetModifierValue(unitMod, BASE_VALUE) + (attackPower / 14.0f) * variance * attackSpeedMulti;
+    //float basePct          = GetModifierValue(unitMod, BASE_PCT);
     float totalValue       = GetModifierValue(unitMod, TOTAL_VALUE);
     float totalPct         = addTotalPct ? GetModifierValue(unitMod, TOTAL_PCT) : 1.0f;
     float dmgMultiplier    = GetCreatureTemplate()->DamageModifier; // = DamageModifier * _GetDamageMod(rank);

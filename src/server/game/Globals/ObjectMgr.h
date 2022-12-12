@@ -144,6 +144,21 @@ struct GameTele
 
 typedef std::unordered_map<uint32, GameTele > GameTeleContainer;
 
+#define MAX_CREATURE_OUTFIT_DISPLAYS 11
+struct CreatureOutfit
+{
+    uint8 race;
+    uint8 gender;
+    uint8 face;
+    uint8 skin;
+    uint8 hair;
+    uint8 facialhair;
+    uint8 haircolor;
+    uint32 outfit[MAX_CREATURE_OUTFIT_DISPLAYS];
+};
+
+typedef std::unordered_map<uint32, CreatureOutfit > CreatureOutfitContainer;
+
 enum ScriptsType
 {
     SCRIPTS_FIRST = 1,
@@ -840,9 +855,15 @@ public:
         return 0;
     }
 
-    [[nodiscard]] bool IsTavernAreaTrigger(uint32 Trigger_ID) const
+    [[nodiscard]] bool IsTavernAreaTrigger(uint32 triggerID, uint32 faction) const
     {
-        return _tavernAreaTriggerStore.find(Trigger_ID) != _tavernAreaTriggerStore.end();
+        auto itr = _tavernAreaTriggerStore.find(triggerID);
+        if (itr != _tavernAreaTriggerStore.end())
+        {
+            return (itr->second & faction) != 0;
+        }
+
+        return false;
     }
 
     [[nodiscard]] GossipText const* GetGossipText(uint32 Text_ID) const;
@@ -1078,6 +1099,8 @@ public:
     void LoadQuestPOI();
 
     void LoadNPCSpellClickSpells();
+
+    void LoadCreatureOutfits();
 
     void LoadGameTele();
 
@@ -1329,6 +1352,8 @@ public:
     bool AddGameTele(GameTele& data);
     bool DeleteGameTele(std::string_view name);
 
+    CreatureOutfitContainer const& GetCreatureOutfitMap() const { return _creatureOutfitStore; }
+
     [[nodiscard]] TrainerSpellData const* GetNpcTrainerSpells(uint32 entry) const
     {
         CacheTrainerSpellContainer::const_iterator  iter = _cacheTrainerSpellStore.find(entry);
@@ -1448,7 +1473,7 @@ private:
 
     typedef std::unordered_map<uint32, GossipText> GossipTextContainer;
     typedef std::unordered_map<uint32, uint32> QuestAreaTriggerContainer;
-    typedef std::set<uint32> TavernAreaTriggerContainer;
+    typedef std::unordered_map<uint32, uint32> TavernAreaTriggerContainer;
 
     QuestAreaTriggerContainer _questAreaTriggerStore;
     TavernAreaTriggerContainer _tavernAreaTriggerStore;
@@ -1494,6 +1519,8 @@ private:
 
     PageTextContainer _pageTextStore;
     InstanceTemplateContainer _instanceTemplateStore;
+
+    CreatureOutfitContainer _creatureOutfitStore;
 
 private:
     void LoadScripts(ScriptsType type);

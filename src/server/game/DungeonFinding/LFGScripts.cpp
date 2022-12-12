@@ -105,7 +105,7 @@ namespace lfg
                 sLFGMgr->LeaveLfg(player->GetGUID());
                 sLFGMgr->LeaveAllLfgQueues(player->GetGUID(), true);
                 player->RemoveAurasDueToSpell(LFG_SPELL_LUCK_OF_THE_DRAW);
-                player->TeleportTo(player->m_homebindMapId, player->m_homebindX, player->m_homebindY, player->m_homebindZ, 0.0f);
+                player->TeleportTo(player->m_homebindMapId, player->m_homebindX, player->m_homebindY, player->m_homebindZ, player->m_homebindO);
                 LOG_DEBUG("lfg", "LFGPlayerScript::OnMapChanged, Player {} ({}) is in LFG dungeon map but does not have a valid group! Teleporting to homebind.",
                     player->GetName(), player->GetGUID().ToString());
                 return;
@@ -125,6 +125,9 @@ namespace lfg
             // Xinef: Destroy group if only one player is left
             if (Group* group = player->GetGroup())
                 if (group->GetMembersCount() <= 1u)
+                //npcbot
+                if (!player->GetSession()->PlayerLoading())
+                //end npcbot
                     group->Disband();
         }
     }

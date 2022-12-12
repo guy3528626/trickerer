@@ -40,6 +40,68 @@ void SpellMgr::LoadSpellInfoCorrections()
 {
     uint32 oldMSTime = getMSTime();
 
+    //npcbot: corrections for Life Tap (see Trinity-Bots issue #239)
+    ApplySpellFix({1454}, [](SpellInfo* spellInfo) // Life Tap (Rank 1)
+    {
+        spellInfo->SpellLevel = 6;
+        spellInfo->BaseLevel = 6;
+        spellInfo->MaxLevel = 16;
+    });
+    ApplySpellFix({1455}, [](SpellInfo* spellInfo) // Life Tap (Rank 2)
+    {
+        spellInfo->SpellLevel = 16;
+        spellInfo->BaseLevel = 16;
+        spellInfo->MaxLevel = 26;
+    });
+    ApplySpellFix({1456}, [](SpellInfo* spellInfo) // Life Tap (Rank 3)
+    {
+        spellInfo->SpellLevel = 26;
+        spellInfo->BaseLevel = 26;
+        spellInfo->MaxLevel = 36;
+    });
+    ApplySpellFix({11687}, [](SpellInfo* spellInfo) // Life Tap (Rank 4)
+    {
+        spellInfo->SpellLevel = 36;
+        spellInfo->BaseLevel = 36;
+        spellInfo->MaxLevel = 46;
+    });
+    ApplySpellFix({11688}, [](SpellInfo* spellInfo) // Life Tap (Rank 5)
+    {
+        spellInfo->SpellLevel = 46;
+        spellInfo->BaseLevel = 46;
+        spellInfo->MaxLevel = 56;
+    });
+    ApplySpellFix({11689}, [](SpellInfo* spellInfo) // Life Tap (Rank 6)
+    {
+        spellInfo->SpellLevel = 56;
+        spellInfo->BaseLevel = 56;
+        spellInfo->MaxLevel = 68;
+    });
+    ApplySpellFix({27222}, [](SpellInfo* spellInfo) // Life Tap (Rank 7)
+    {
+        spellInfo->SpellLevel = 68;
+        spellInfo->BaseLevel = 68;
+        spellInfo->MaxLevel = 78;
+    });
+    ApplySpellFix({57946}, [](SpellInfo* spellInfo) // Life Tap (Rank 8)
+    {
+        spellInfo->SpellLevel = 80;
+        spellInfo->BaseLevel = 80;
+        spellInfo->MaxLevel = 90;
+    });
+    //npcbot: corrections for Gunship Battle Shoot: should be able to target creatures (Hurl Axe can)
+    ApplySpellFix({
+        70162,  // Shoot 10N
+        72566,  // Shoot 25N
+        72567,  // Shoot 10H
+        72568   // Shoot 25H
+        }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->AttributesEx3 &= ~SPELL_ATTR3_ONLY_ON_PLAYER;
+        spellInfo->TargetAuraSpell = 0;
+    });
+    //end npcbot
+
     ApplySpellFix({
         467,    // Thorns (Rank 1)
         782,    // Thorns (Rank 2)
@@ -4407,6 +4469,45 @@ void SpellMgr::LoadSpellInfoCorrections()
     ApplySpellFix({ 53444 }, [](SpellInfo* spellInfo)
     {
         spellInfo->DurationEntry = sSpellDurationStore.LookupEntry(27);
+    });
+
+    // Rental Racing Ram
+    ApplySpellFix({ 43883 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->AuraInterruptFlags &= ~AURA_INTERRUPT_FLAG_NOT_ABOVEWATER;
+    });
+
+    // Summon Worm
+    ApplySpellFix({ 518, 25831, 25832 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->Effects[EFFECT_0].MiscValueB = 64;
+    });
+
+    // Uppercut
+    ApplySpellFix({ 26007 }, [](SpellInfo* spellInfo)
+    {
+            spellInfo->AttributesEx3 |= SPELL_ATTR3_SUPRESS_CASTER_PROCS;
+    });
+
+    // Digestive Acid (Temporary)
+    ApplySpellFix({ 26476 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->Attributes |= SPELL_ATTR0_NO_IMMUNITIES;
+        spellInfo->AttributesEx2 |= SPELL_ATTR2_IGNORE_LINE_OF_SIGHT;
+        spellInfo->AttributesEx3 |= SPELL_ATTR3_ALWAYS_HIT;
+    });
+
+    // Drums of War/Battle/Speed/Restoration
+    ApplySpellFix({ 35475, 35476, 35477, 35478 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->ExcludeTargetAuraSpell = 51120;
+    });
+
+    // Slap!
+    ApplySpellFix({ 6754 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->AttributesEx |= SPELL_ATTR1_NO_THREAT;
+        spellInfo->AttributesEx3 |= SPELL_ATTR3_SUPRESS_TARGET_PROCS;
     });
 
     for (uint32 i = 0; i < GetSpellInfoStoreSize(); ++i)
